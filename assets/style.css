@@ -373,6 +373,37 @@ input[type="number"].big-input { flex: none; }
 .footer-cols a:hover { color: var(--gold-text); text-decoration: none; }
 .footer-note { color: var(--muted); font-size: 0.85rem; margin-top: 22px; border-top: 1px solid var(--line); padding-top: 15px; }
 
+/* ---------- Popüler aramalar ---------- */
+.popular { margin-bottom: 28px; }
+.popular-title {
+  font-family: var(--serif); font-size: 1.3rem; font-weight: 600; color: var(--ink);
+  margin: 0 0 15px; padding-bottom: 9px;
+  border-bottom: 1px solid var(--line); position: relative;
+}
+.popular-title::after {
+  content: ""; position: absolute; left: 0; bottom: -1px;
+  width: 48px; height: 2px; background: var(--gold);
+}
+.pop-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pop-chip {
+  background: var(--card); border: 1px solid var(--line-dark); border-radius: 999px;
+  padding: 6px 15px; color: var(--ink-soft);
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  text-decoration: none; white-space: nowrap;
+}
+.pop-chip:hover { border-color: var(--gold); background: var(--gold-wash); color: var(--gold-text); text-decoration: none; }
+
+/* ---------- Alt bar ---------- */
+.footer-bottom {
+  display: flex; flex-wrap: wrap; gap: 8px 26px;
+  align-items: center; justify-content: space-between;
+  margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px;
+}
+.fb-copy { color: var(--muted); font-size: 0.85rem; }
+.fb-links { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.fb-links a { color: var(--muted); font-size: 0.85rem; text-decoration: none; }
+.fb-links a:hover { color: var(--gold-text); text-decoration: none; }
+
 /* ---------- Duyarlılık ---------- */
 @media (max-width: 640px) {
   .hero { padding: 32px 0 4px; }
