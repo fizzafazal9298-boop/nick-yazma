@@ -982,8 +982,9 @@ const io = new IntersectionObserver(entries => {
 entries.forEach(en => {
 if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target);}
 });
-}, { threshold: 0.08});
+}, { threshold: 0, rootMargin: '0px 0px 12% 0px'});
 els.forEach(el => io.observe(el));
+setTimeout(() => els.forEach(el => el.classList.add('in')), 2500);
 }
 
 /* ---------- Mini üreteç (içerik sayfalarının tepesindeki hızlı araç) ---------- */
