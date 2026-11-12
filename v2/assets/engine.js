@@ -396,7 +396,11 @@ const COMBOS = [
 ['fraktur','skull'], ['bold','flowerchain'], ['script','hearts2'],
 ['mono','boltchain'], ['circled','star2'], ['boldscript','crown2'],
 ['sansbold','anchor'], ['bold','clover'], ['italic','sun'], ['smallcaps','snow'],
-['runic','cross2'], ['negsquared','skull'], ['bold','sword'], ['script','star2']
+['runic','cross2'], ['negsquared','skull'], ['bold','sword'], ['script','star2'],
+['sans','star'], ['bold','angle'], ['script','wing'], ['fraktur','diamonds'],
+['doublestruck','moons'], ['smallcaps','hearts2'], ['mono','music2'], ['circled','moon'],
+['italic','flower'], ['sansbold','cross'], ['bold','snow'], ['runic','skull'],
+['boldscript','star2'], ['negsquared','crown']
 ];
 const SEP_COMBOS = [
 ['bold','star'], ['sansbold','heart'], ['mono','dot'], ['smallcaps','flower'],
@@ -507,14 +511,28 @@ try { document.execCommand('copy'); done();} catch (e) { showToast('Kopyalama ba
 document.body.removeChild(ta);
 }
 
-/* Genel tıklayıp-kopyala bağlayıcısı: [data-copy] taşıyan her öğe */
+/* Genel tıklayıp-kopyala bağlayıcısı: [data-copy] taşıyan her öğe.
+   Kalp düğmeleri önce yakalanır; kopyalama tetiklenmez. */
 document.addEventListener('click', function (e) {
+const fav = e.target.closest('.fav-btn, .dir-fav');
+if (fav) { toggleFav(fav.getAttribute('data-fav-key')); return;}
 const el = e.target.closest('[data-copy]');
 if (el) { copyText(el.getAttribute('data-copy'), el);}
 });
 
+/* Klavye: div kartlarda Enter / Boşluk ile kopyala (button'larda doğal davranış) */
+document.addEventListener('keydown', function (e) {
+if (e.key !== 'Enter' && e.key !== ' ') return;
+if (!e.target.closest) return;
+const card = e.target.closest('.result-card, .shuffle-card');
+if (card && card.tagName !== 'BUTTON' && card.getAttribute('data-copy')) {
+e.preventDefault();
+copyText(card.getAttribute('data-copy'), card);
+}
+});
+
 /* ---------- Ana üreteç (tool sayfaları) ---------- */
-const state = { wrap: 'none', sep: 'none'};
+const state = { pre: 'none', post: 'none', sep: 'none'};
 
 function renderResults() {
 const input = document.getElementById('nick-input');
@@ -537,12 +555,26 @@ grid.innerHTML = '';
 const frag = document.createDocumentFragment();
 let curGrid = null;
 
-function addCard(text, label, catStr) {
-const card = document.createElement('button');
-card.type = 'button';
+function heartSpan(key) {
+const h = document.createElement('span');
+const on = FAVS.has(key);
+h.className = 'fav-btn' + (on? ' on': '');
+h.setAttribute('role', 'button');
+h.setAttribute('data-fav-key', key);
+h.setAttribute('aria-label', 'Favorilere ekle');
+h.title = 'Favorilere ekle';
+h.textContent = on? '♥': '♡';
+return h;
+}
+function addCard(text, label, catStr, favKey) {
+const card = document.createElement('div');
 card.className = 'result-card';
+card.setAttribute('role', 'button');
+card.setAttribute('tabindex', '0');
 card.setAttribute('data-copy', text);
+card.setAttribute('data-fav-key', favKey);
 if (catStr) card.setAttribute('data-cat', catStr);
+if (FAVS.has(favKey)) card.classList.add('faved');
 const tooLong = limit > 0 && graphemeLength(text) > limit;
 if (tooLong) card.classList.add('too-long');
 const span = document.createElement('span');
@@ -553,6 +585,7 @@ tag.className = 'result-tag';
 tag.textContent = tooLong? label + ' • limit dışı': label;
 card.appendChild(span);
 card.appendChild(tag);
+card.appendChild(heartSpan(favKey));
 (curGrid || frag).appendChild(card);
 }
 function addHeading(txt) {
@@ -565,13 +598,16 @@ curGrid.className = 'results-grid';
 frag.appendChild(curGrid);
 }
 
-/* 1) Temel stiller (seçili süsleyici uygulanır) */
+/* 1) Temel stiller (süsleme karıştırıcısı: ön ek + son ek ayrı seçilir) */
 addHeading('Tüm Stiller');
+const mixPre = (WRAPPERS.find(x => x.id === state.pre) || WRAPPERS[0]).pre;
+const mixPost = (WRAPPERS.find(x => x.id === state.post) || WRAPPERS[0]).post;
+const mixed = state.pre !== 'none' || state.post !== 'none';
 STYLES.forEach(st => {
 let t = st.fn(raw);
 t = applySeparator(t, state.sep);
-t = applyWrapper(t, state.wrap);
-addCard(t, st.name, catsOf(st.id, state.wrap !== 'none'? 'suslemeli': ''));
+t = mixPre + t + mixPost;
+addCard(t, st.name, catsOf(st.id, mixed? 'suslemeli': ''), 'r:s:' + st.id);
 });
 
 /* 2) Hazır kombinasyonlar */
@@ -579,7 +615,7 @@ addHeading('Süslü Kombinasyonlar');
 COMBOS.forEach(([sid, wid]) => {
 const st = STYLES.find(x => x.id === sid);
 const wr = WRAPPERS.find(x => x.id === wid);
-addCard(wr.pre + st.fn(raw) + wr.post, st.name + ' + ' + wr.name, catsOf(sid, 'suslemeli'));
+addCard(wr.pre + st.fn(raw) + wr.post, st.name + ' + ' + wr.name, catsOf(sid, 'suslemeli'), 'r:c:' + sid + ':' + wid);
 });
 
 /* 3) Ayraçlı stiller */
@@ -587,13 +623,30 @@ addHeading('Ayraçlı Stiller');
 SEP_COMBOS.forEach(([sid, spid]) => {
 const st = STYLES.find(x => x.id === sid);
 const sp = SEPARATORS.find(x => x.id === spid);
-addCard(applySeparator(st.fn(raw), spid), st.name + ' + ' + sp.name + ' ayracı', catsOf(sid));
+addCard(applySeparator(st.fn(raw), spid), st.name + ' + ' + sp.name + ' ayracı', catsOf(sid), 'r:p:' + sid + ':' + spid);
 });
 
 grid.appendChild(frag);
 
 const countEl = document.getElementById('result-count');
 if (countEl) countEl.textContent = grid.querySelectorAll('.result-card').length + ' farklı stil üretildi';
+
+/* Platform sınır ipuçları (yalnız ana sayfadaki üreteçte bulunur) */
+const phP = document.getElementById('ph-pubg');
+const phI = document.getElementById('ph-insta');
+if (phP && phI) {
+const n = graphemeLength(input.value.trim());
+function hint(el, label, max) {
+el.textContent = label + ': ' + (n === 0? 'nickini yaz': (n <= max? '✓ sığar (' + n + '/' + max + ')': '✗ aşıyor (' + n + '/' + max + ')'));
+el.classList.toggle('ok', n > 0 && n <= max);
+el.classList.toggle('over', n > max);
+}
+hint(phP, 'PUBG Mobile (16)', 16);
+hint(phI, 'Instagram adı (30)', 30);
+}
+
+/* Etkin kategori filtresi yeniden uygulanır (kartlar taze basıldı) */
+if (activeFilter !== 'all') applyFilters();
 }
 
 function initGenerator() {
@@ -603,16 +656,22 @@ const cfg = window.PAGE_CFG || {};
 if (!input.value && cfg.sample) input.value = cfg.sample;
 input.addEventListener('input', renderResults);
 
-const wrapSel = document.getElementById('wrap-select');
+const preSel = document.getElementById('mix-pre');
+const postSel = document.getElementById('mix-post');
 const sepSel = document.getElementById('sep-select');
-if (wrapSel) {
+if (preSel && postSel) {
 WRAPPERS.forEach(w => {
-const o = document.createElement('option');
-o.value = w.id;
-o.textContent = w.name + (w.pre? ' (' + w.pre + ' … ' + w.post + ')': '');
-wrapSel.appendChild(o);
+const o1 = document.createElement('option');
+o1.value = w.id;
+o1.textContent = w.name + (w.pre? ' (' + w.pre + ' …)': '');
+preSel.appendChild(o1);
+const o2 = document.createElement('option');
+o2.value = w.id;
+o2.textContent = w.name + (w.post? '(… ' + w.post + ')': '');
+postSel.appendChild(o2);
 });
-wrapSel.addEventListener('change', () => { state.wrap = wrapSel.value; renderResults();});
+preSel.addEventListener('change', () => { state.pre = preSel.value; renderResults();});
+postSel.addEventListener('change', () => { state.post = postSel.value; renderResults();});
 }
 if (sepSel) {
 SEPARATORS.forEach(s => {
@@ -813,21 +872,34 @@ copyText(text, genBtn);
 });
 }
 
-/* ---------- Kategori filtreleri (ana sayfa) ---------- */
-function initFilters() {
-const bar = document.getElementById('filter-chips');
-if (!bar) return;
-bar.addEventListener('click', function (e) {
-const btn = e.target.closest('[data-filter]');
-if (!btn) return;
-bar.querySelectorAll('[data-filter]').forEach(b => {
-b.classList.toggle('active', b === btn);
-b.setAttribute('aria-pressed', b === btn? 'true': 'false');
+/* ---------- Favoriler (bellek içi; sayfa yenilenince sıfırlanır) ---------- */
+const FAVS = new Set();
+function toggleFav(key) {
+if (!key) return;
+const on = !FAVS.has(key);
+if (on) FAVS.add(key); else FAVS.delete(key);
+document.querySelectorAll('[data-fav-key]').forEach(el => {
+if (el.getAttribute('data-fav-key') !== key) return;
+if (el.classList.contains('fav-btn') || el.classList.contains('dir-fav')) {
+el.classList.toggle('on', on);
+el.textContent = on? '♥': '♡';
+} else {
+el.classList.toggle('faved', on);
+}
 });
-const f = btn.getAttribute('data-filter');
-document.querySelectorAll('#results .result-card').forEach(card => {
+if (activeFilter === 'fav') applyFilters();
+showToast(on? 'Favorilere eklendi': 'Favorilerden çıkarıldı');
+}
+
+/* ---------- Kategori filtreleri + favori filtresi (ana sayfa) ---------- */
+let activeFilter = 'all';
+function applyFilters() {
+const f = activeFilter;
+document.querySelectorAll('#results .result-card, .dir-card').forEach(card => {
 const cats = (card.getAttribute('data-cat') || '').split(' ');
-card.style.display = (f === 'all' || cats.indexOf(f) !== -1)? '': 'none';
+const show = f === 'all' || cats.indexOf(f) !== -1 ||
+(f === 'fav' && FAVS.has(card.getAttribute('data-fav-key')));
+card.style.display = show? '': 'none';
 });
 document.querySelectorAll('#results .results-grid').forEach(g => {
 const any = Array.prototype.some.call(g.children, c => c.style.display !== 'none');
@@ -835,7 +907,83 @@ g.style.display = any? '': 'none';
 const h = g.previousElementSibling;
 if (h && h.classList.contains('results-heading')) h.style.display = any? '': 'none';
 });
+document.querySelectorAll('.dir-grid, .river').forEach(g => {
+const any = Array.prototype.some.call(g.children, c => c.style.display !== 'none');
+g.style.display = any? '': 'none';
+const sec = g.closest('section');
+if (sec) sec.style.display = any? '': 'none';
 });
+}
+function initFilters() {
+const bar = document.getElementById('filter-chips');
+if (bar) {
+bar.addEventListener('click', function (e) {
+const btn = e.target.closest('[data-filter]');
+if (!btn) return;
+bar.querySelectorAll('[data-filter]').forEach(b => {
+b.classList.toggle('active', b === btn);
+b.setAttribute('aria-pressed', b === btn? 'true': 'false');
+});
+activeFilter = btn.getAttribute('data-filter');
+applyFilters();
+});
+}
+const copyAll = document.getElementById('fav-copy-all');
+if (copyAll) {
+copyAll.addEventListener('click', () => {
+if (!FAVS.size) { showToast('Önce kalple favori seç'); return;}
+const texts = [];
+FAVS.forEach(key => {
+const card = document.querySelector('[data-fav-key="' + key + '"]');
+if (!card) return;
+const btn = card.querySelector ? card.querySelector('.dir-copy'): null;
+const t = btn? btn.getAttribute('data-copy'): card.getAttribute('data-copy');
+if (t && texts.indexOf(t) === -1) texts.push(t);
+});
+if (texts.length) copyText(texts.join('\n'), copyAll);
+});
+}
+}
+
+/* ---------- Şansına Bir Stil (ana sayfa oyuncağı) ---------- */
+function initShuffle() {
+const btn = document.getElementById('shuffle-btn');
+const card = document.getElementById('shuffle-card');
+if (!btn || !card) return;
+const textEl = document.getElementById('shuffle-text');
+const nameEl = document.getElementById('shuffle-name');
+btn.addEventListener('click', () => {
+const input = document.getElementById('nick-input');
+const cfg = window.PAGE_CFG || {};
+const raw = (input && input.value.trim()) || cfg.sample || 'Şahin';
+const st = STYLES[Math.floor(Math.random() * STYLES.length)];
+const pool = WRAPPERS.filter(w => w.id !== 'none');
+const wr = Math.random() < 0.25? WRAPPERS[0]: pool[Math.floor(Math.random() * pool.length)];
+const t = wr.pre + st.fn(raw) + wr.post;
+textEl.textContent = t;
+nameEl.textContent = wr.id === 'none'? st.name: st.name + ' + ' + wr.name;
+card.setAttribute('data-copy', t);
+card.classList.remove('pop');
+void card.offsetWidth;
+card.classList.add('pop');
+});
+}
+
+/* ---------- Kaydırdıkça belirme (scroll-reveal) ---------- */
+function initReveal() {
+const els = document.querySelectorAll('.rv');
+if (!els.length) return;
+const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reduced || !('IntersectionObserver' in window)) {
+els.forEach(el => el.classList.add('in'));
+return;
+}
+const io = new IntersectionObserver(entries => {
+entries.forEach(en => {
+if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target);}
+});
+}, { threshold: 0.08});
+els.forEach(el => io.observe(el));
 }
 
 /* ---------- Mini üreteç (içerik sayfalarının tepesindeki hızlı araç) ---------- */
@@ -866,10 +1014,38 @@ input.addEventListener('input', draw);
 draw();
 }
 
+/* ---------- Ana sayfa isimli kart dizini (sunucuda basılır, canlı güncellenir) ---------- */
+function initDirectory() {
+const cards = document.querySelectorAll('.dir-card');
+if (!cards.length) return;
+const input = document.getElementById('nick-input');
+function update() {
+const typed = input && input.value.trim();
+cards.forEach(card => {
+const sample = card.getAttribute('data-sample') || 'Şahin';
+const raw = typed || sample;
+const st = STYLES.find(x => x.id === card.getAttribute('data-style'));
+if (!st) return;
+let t = st.fn(raw);
+t = applySeparator(t, card.getAttribute('data-sep') || 'none');
+t = applyWrapper(t, card.getAttribute('data-wrap') || 'none');
+const sampleEl = card.querySelector('.dir-sample');
+if (sampleEl) sampleEl.textContent = t;
+const btn = card.querySelector('.dir-copy');
+if (btn) btn.setAttribute('data-copy', t);
+});
+}
+if (input) input.addEventListener('input', update);
+update();
+}
+
 /* ---------- Başlat ---------- */
 document.addEventListener('DOMContentLoaded', function () {
 initGenerator();
+initDirectory();
 initFilters();
+initShuffle();
+initReveal();
 initMiniGenerator();
 initStyleLibrary();
 initLetterTables();
